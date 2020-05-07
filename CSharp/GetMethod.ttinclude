@@ -1,0 +1,24 @@
+﻿<#+
+private void WriteSelectMethod(Database database, Table table)
+{
+#>
+
+public virtual async Task<<#= table.TargetLanguageIdentifier #>> GetAsync(long id)
+{
+	if (id < 1)
+	{
+		throw new ArgumentOutOfRangeException("Int value was less than 1.", "id");
+	}
+      
+	using (IDbConnection db = new SqlConnection(mConnectionString))
+	{
+		var p = new DynamicParameters();
+		p.Add("@<#= table.TargetLanguageIdentifier #>Id", id);
+
+		return await db.QuerySingleOrDefaultAsync<<#= table.TargetLanguageIdentifier #>>("<#= this.GetStoredProcedureName(database.Name, table.Schema.Name, table.Name, "Get") #>", p, commandType: CommandType.StoredProcedure);
+	}
+}
+
+<#+
+}
+#>

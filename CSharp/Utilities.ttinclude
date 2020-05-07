@@ -1,0 +1,47 @@
+﻿<#+
+
+private static String _standardIndent = "	"; //That's a tab character
+
+private String GetMethodParameters(Table table, ColumnType columnType)
+{
+  return
+    table
+    .Columns
+    .GetTargetLanguageMethodIdentifiersAndTypes(columnType)
+    .Join("," + Environment.NewLine);
+}
+
+private String GetSqlCommandParameters(Table table, ColumnType columnType)
+{
+  var parameters = table.Columns.GetTargetLanguageSqlParameterText(columnType);
+  if (parameters.Any())
+    return
+      parameters
+      .Select(p => "p.Add(" + p + ");")
+      .Join();
+  else
+    return "";
+}
+
+private String GetSqlCommandReaderAssigments(Columns columns)
+{
+  return
+    columns
+    .OrderBy(column => column.Name)
+    .Select(column => String.Format("{0} = {1}", column.TargetLanguageIdentifier, column.GetTargetLanguageDataReaderExpression("reader")))
+    .Join("," + Environment.NewLine);
+}
+
+private void WriteClosingBrace()
+{
+  this.WriteLine("}");
+}
+
+private void PushWritePop(String indent, String data)
+{
+  this.PushIndent(indent);
+  this.WriteLine(data);
+  this.PopIndent();
+}
+
+#>

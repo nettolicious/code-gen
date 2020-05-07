@@ -1,0 +1,60 @@
+﻿<#+
+
+private readonly Dictionary<String, String> _prefixes = new Dictionary<String, String>(StringComparer.CurrentCultureIgnoreCase)
+  {
+    { "AdventureWorks2012", "adv" }
+  };
+
+private String GetStoredProcedureName(String database, String schema, String table, String operation)
+{
+  /* Custom stored procedure naming scheme.
+
+      The returned value serves as both a name for the stored procedure, and a valid
+      filename for storing the stored procedure text (so it can
+      be saved in source control).
+    
+        format:
+
+          [schema].[prefix_sp_operation_table]
+         
+        where:
+
+          schema = database schema name
+          prefix = three or four letter identifier for a database
+          operation = select, insert, update or delete
+          table = table name 
+            
+        examples:
+
+          [dbo].[blog_sp_Select_Pages]
+          [Person].[adv_sp_Insert_EmailAddress]
+
+  */
+
+  //var prefix = this._prefixes[database]; // Can throw KeyNotFoundException.
+
+  return String.Format("[{0}].[usp_{1}_{2}]", schema, table, operation);
+}
+
+private string GetStoredProcedureFileName(string table, string operation) {
+	return string.Format("usp_{0}_{1}", table, operation);
+}
+
+private static readonly Regex _valueRegex = new Regex(@"(Value\s*=\s*)(.*)\b", RegexOptions.Singleline);
+
+private String FixupSqlParameterValue(SqlParameter sqlParameter)
+{
+  var s = ReflectionUtils.GetObjectInitializer(sqlParameter, "DbType", "SqlValue");
+  return _valueRegex.Replace(s, "$1" + Utilities.Sql.SqlServer.IdentifierHelper.GetTargetLanguageIdentifier(sqlParameter.ParameterName));
+}
+
+private void SaveOutput(String path)
+{
+  /* "this" refers to the T4 TextTransformation instance that's producing the output.
+      See https://msdn.microsoft.com/en-us/library/Microsoft.VisualStudio.TextTemplating.TextTransformation.aspx. */
+  Directory.CreateDirectory(Path.GetDirectoryName(path));
+  File.WriteAllText(path, this.GenerationEnvironment.ToString());
+  this.GenerationEnvironment.Clear();
+}
+
+#>

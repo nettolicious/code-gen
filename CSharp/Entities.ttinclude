@@ -1,0 +1,121 @@
+﻿<#+
+
+private void GenerateEntityClasses(IEnumerable<Database> databases, String outputDirectory, List<string> _tables)
+{
+  foreach (var database in databases)
+  {
+    
+
+    foreach (var schema in database.Schemas.OrderBy(schema => schema.Name))
+    {
+      var tables = schema.Tables.Where(t => _tables.Contains(t.Name)).OrderBy(table => table.Name);
+
+      
+
+      // Generate class definitions for the tables, and also include methods that
+      // use the above udtt's to write multiple class instances to the database.
+      foreach (var table in tables)
+      {
+				var outputFilename = table.TargetLanguageIdentifier;
+
+				this.WriteEntityNamespaceHeader(this.CONST_NAMESPACE_MODEL);
+				this.PushIndent(_standardIndent);
+
+        this.WriteEntityClassHeader(table.TargetLanguageIdentifier);
+        this.PushIndent(_standardIndent);
+        this.WriteClassPropertiesWithBackingStores(table.Columns);
+        
+        this.PopIndent();
+        this.WriteClosingBrace();
+        this.WriteLine("");
+				this.PopIndent();
+				this.WriteClosingBrace();
+
+				this.SaveOutput(Path.Combine(outputDirectory, outputFilename + ".g.cs"));
+      }
+
+      
+    } // foreach schema
+
+    
+  } // foreach database
+}
+
+private void WriteEntityNamespaceHeader(String outputFilename)
+{
+#>
+namespace <#= outputFilename #>
+{
+<#+
+}
+
+private void WriteEntityClassHeader(String className)
+{
+#>
+public partial class <#= className #>
+{
+<#+
+}
+
+private void WriteClassPropertiesWithBackingStores(Columns columns)
+{
+  var backingStores = columns.GetNecessaryTargetLanguageBackingStoreDeclarations();
+  if (backingStores.Any())
+  {
+    this.WriteLine(backingStores.Join(Environment.NewLine));
+    this.WriteLine("");
+  }
+
+  this.WriteLine(columns.GetClassPropertyDeclarations("public").Join(Environment.NewLine));
+}
+
+private void WriteGetDataTableMethod(String className, Columns columns)
+{
+  var columnDefinitions =
+    columns
+    .Select(c => String.Format("result.Columns.Add(new DataColumn(\"{0}\", typeof({1})));", c.TargetLanguageIdentifier, c.ClrTypeName))
+    .Join();
+
+#>
+private static DataTable GetDataTable(IEnumerable<<#= className #>> xs)
+{
+  var result = new DataTable();
+
+<#+
+  this.PushIndent(_standardIndent);
+  this.WriteLine(columnDefinitions);
+  this.PopIndent();
+#>
+
+  foreach (var x in xs)
+    AddDataRow(result, x);
+
+  return result;
+}
+<#+
+}
+
+private void WriteAddDataRowMethod(String className, Columns columns)
+{
+  var columnDefinitions =
+    columns
+    .Select(c => String.Format("dataRow[\"{0}\"] = x.{0};", c.TargetLanguageIdentifier))
+    .Join();
+
+#>
+private static void AddDataRow(DataTable dataTable, <#= className #> x)
+{
+  var dataRow = dataTable.NewRow();
+
+<#+
+  this.PushIndent(_standardIndent);
+  this.WriteLine(columnDefinitions);
+  this.PopIndent();
+#>
+
+  dataTable.Rows.Add(dataRow);
+}
+<#+
+}
+
+#>

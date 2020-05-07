@@ -1,0 +1,22 @@
+﻿<#+
+private void WriteDeleteMethod(Database database, Table table)
+{
+#>
+public virtual async Task DeleteAsync(long id)
+{
+	if (id < 1)
+	{
+		throw new ArgumentOutOfRangeException("Int value was less than 1.", "id");
+	}
+	using (IDbConnection db = new SqlConnection(mConnectionString))
+	{
+		var p = new DynamicParameters();
+		p.Add("@<#= table.TargetLanguageIdentifier #>Id", id);
+
+		await db.ExecuteAsync("<#= this.GetStoredProcedureName(database.Name, table.Schema.Name, table.Name, "Delete") #>", p, commandType: CommandType.StoredProcedure);
+	}
+}
+
+<#+
+}
+#>

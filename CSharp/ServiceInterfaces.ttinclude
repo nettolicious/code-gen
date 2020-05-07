@@ -1,0 +1,63 @@
+﻿<#+
+
+private void GenerateServiceInterfaces(IEnumerable<Database> databases, String outputDirectory, List<string> _tables)
+{
+  foreach (var database in databases)
+  {
+    foreach (var schema in database.Schemas.OrderBy(schema => schema.Name))
+    {
+      foreach (var table in schema.Tables.Where(t => _tables.Contains(t.Name)).OrderBy(table => table.Name))
+      {
+				var modelClassName = table.TargetLanguageIdentifier;
+				var serviceInterfaceName = "I" + table.TargetLanguageIdentifier + "Service";
+
+				this.WriteServiceInterfaceNamespaceHeader(this.CONST_NAMESPACE_MODEL, this.CONST_NAMESPACE_DATA);
+				this.PushIndent(_standardIndent);
+        this.WriteServiceInterfaceHeader(serviceInterfaceName);
+        this.PushIndent(_standardIndent);
+
+        this.WriteServiceInterfaceMethods(modelClassName);
+
+        this.PopIndent();
+        this.WriteClosingBrace();
+				this.PopIndent();
+				this.WriteClosingBrace();
+
+				this.SaveOutput(Path.Combine(outputDirectory, serviceInterfaceName + ".g.cs"));
+      } // foreach table
+    } // foreach schema
+  } // foreach database
+}
+
+private void WriteServiceInterfaceNamespaceHeader(String entitiesUsingIdentifier, String namespaceIdentifier)
+{
+#>
+using AJBoggs.Common.Data;
+using <#= entitiesUsingIdentifier #>;
+using System.Threading.Tasks;
+
+namespace <#= namespaceIdentifier #>
+{
+<#+
+}
+
+private void WriteServiceInterfaceHeader(string interfaceName)
+{
+#>
+public partial interface <#= interfaceName #>
+{
+
+<#+
+}
+
+private void WriteServiceInterfaceMethods(string modelClassName) 
+{
+#>
+Task<<#= modelClassName #>> InsertAsync(<#= modelClassName #> entity);
+Task DeleteAsync(long id);
+Task<<#= modelClassName #>> GetAsync(long id);
+Task<QueryResult<<#= modelClassName #>>> QueryAsync(QueryParameters queryParameters = null);
+Task<<#= modelClassName #>> UpdateAsync(<#= modelClassName #> entity);
+<#+
+}
+#>

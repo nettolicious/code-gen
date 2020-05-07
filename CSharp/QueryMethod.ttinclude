@@ -1,0 +1,41 @@
+﻿<#+
+private void WriteQueryMethod(Database database, Table table)
+{
+#>
+public virtual async Task<QueryResult<<#= table.TargetLanguageIdentifier #>>> QueryAsync(QueryParameters queryParameters = null)
+{
+	var timer = new Stopwatch();
+	timer.Start();
+	queryParameters = queryParameters ?? new QueryParameters();
+	var select = queryParameters.SkipTake ? SELECT : SELECT_TOP_1000;
+	var sql = string.IsNullOrWhiteSpace(queryParameters.Predicate) ? select : string.Format("{0} {1}", select, queryParameters.Predicate);
+	sql = string.Format("{0} {1}", sql, string.IsNullOrWhiteSpace(queryParameters.Sort) ? DEFAULT_SORT : queryParameters.Sort);
+	if (queryParameters.SkipTake)
+	{
+		sql = string.Format("{0} {1}", sql, string.Format(SKIP_TAKE_FORMAT, queryParameters.Skip, queryParameters.Take));
+	}
+	var countSql = string.IsNullOrWhiteSpace(queryParameters.Predicate) 
+		? SELECT_COUNT : string.Format("{0} {1}", SELECT_COUNT, queryParameters.Predicate);
+
+	var result = new QueryResult<<#= table.TargetLanguageIdentifier #>>();
+	using (IDbConnection db = new SqlConnection(mConnectionString))
+	{
+		if (queryParameters.Parameters != null)
+		{
+			result.NumFound = await db.QuerySingleAsync<long>(countSql, queryParameters.Parameters);
+			result.Docs = await db.QueryAsync<<#= table.TargetLanguageIdentifier #>>(sql, queryParameters.Parameters);
+		}
+		else
+		{
+			result.NumFound = await db.QuerySingleAsync<long>(countSql);
+			result.Docs = await db.QueryAsync<<#= table.TargetLanguageIdentifier #>>(sql);
+		}
+	}
+	result.Start = queryParameters.SkipTake ? queryParameters.Skip.Value : 0L;
+	result.QTime = timer.ElapsedMilliseconds;
+	return result;
+}
+
+<#+
+}
+#>

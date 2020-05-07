@@ -1,0 +1,32 @@
+﻿<#+
+public string CONST_DATA_SOURCE = "deimos.ad.ixn.net\\deimos_sqlsrv";
+public string CONST_DATABASE_NAME = "uas-oidc";
+public string CONST_NAMESPACE_MODEL = "AJBoggs.UAS.Auth.Model";
+public string CONST_NAMESPACE_SERVICES_CONTROLLERS = "AJBoggs.UAS.Auth.API.Controllers";
+public string CONST_NAMESPACE_DATA = "AJBoggs.UAS.Auth.Data";
+public string CONST_NAMESPACE_COMMON_ASPNETCORE_EXTENSTIONS = "AJBoggs.Common.AspNetCore.Extensions";
+public string CONST_NAMESPACE_COMMON_DATA = "AJBoggs.Common.Data";
+public string CONST_NAMESPACE_COMMON_EXTENSIONS = "AJBoggs.Common.Extensions";
+public string CONST_NAMESPACE_COMMON_LOGGING = "AJBoggs.Common.Logging";
+public string CONST_NAMESPACE_COMMON_PROVIDERS = "AJBoggs.Common.Providers";
+public List<string> TABLES = new List<string>(new string[] {
+	"ApiClaims",
+	"ApiResources",
+	"ApiScopeClaims",
+	"ApiScopes",
+	"ApiSecrets",
+	"ClientClaims",
+	"ClientCorsOrigins",
+	"ClientGrantTypes",
+	"ClientIdPRestrictions",
+	"ClientPostLogoutRedirectUris",
+	"ClientProperties",
+	"ClientRedirectUris",
+	"Clients",
+	"ClientScopes",
+	"ClientSecrets",
+	"IdentityClaims",
+	"IdentityResources",
+	"PersistedGrants"
+});
+#>

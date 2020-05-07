@@ -1,0 +1,75 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ output extension=".txt" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Data" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="C:\GIT\experiments\code-gen\Utilities.Core\bin\Debug\Utilities.Core.dll" #>
+<#@ assembly name="C:\GIT\experiments\code-gen\Utilities.Sql\bin\Debug\Utilities.Sql.dll" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="System.Data.SqlClient" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text.RegularExpressions" #>
+<#@ import namespace="Utilities.Core" #>
+<#@ import namespace="Utilities.Sql.SqlServer" #>
+<#@ include file="C:\GIT\experiments\code-gen\T4_Utilities\SQL Generator Utilities.ttinclude" #>
+<#@ include file="Utilities.ttinclude" #>
+<#@ include file="Entities.ttinclude" #>
+<#@ include file="Services.ttinclude" #>
+<#@ include file="ServiceInterfaces.ttinclude" #>
+<#@ include file="GetMethod.ttinclude" #>
+<#@ include file="InsertMethod.ttinclude" #>
+<#@ include file="UpdateMethod.ttinclude" #>
+<#@ include file="DeleteMethod.ttinclude" #>
+<#@ include file="QueryMethod.ttinclude" #>
+<#@ include file="RestControllers.ttinclude" #>
+<#@ include file="AppSettings.ttinclude" #>
+<#
+using (var connection = new SqlConnection(string.Format("Data Source={0};Initial Catalog={1};Integrated Security=true;",this.CONST_DATA_SOURCE,this.CONST_DATABASE_NAME)))
+{
+
+  connection.Open();
+
+  var configuration =
+    new Configuration()
+    {
+      Connection = connection,
+      XmlSystem = XmlSystem.NonLinq_XmlDocument,
+      TargetLanguage = TargetLanguage.CSharp_Latest,
+      XmlValidationLocation = XmlValidationLocation.PropertySetter
+    };
+    
+  var modelPath = Path.Combine(Path.GetDirectoryName(this.Host.ResolvePath(".")), "bin\\Output\\Model");
+	var dataPath = Path.Combine(Path.GetDirectoryName(this.Host.ResolvePath(".")), "bin\\Output\\Data");
+	var controllersPath = Path.Combine(Path.GetDirectoryName(this.Host.ResolvePath(".")), "bin\\Output\\Controllers");
+	Directory.CreateDirectory(modelPath);
+	Directory.CreateDirectory(dataPath);
+	Directory.CreateDirectory(controllersPath);
+  var server = new Server(configuration);
+  var databaseNames = new List<String>() { this.CONST_DATABASE_NAME };
+  var databases =
+    server
+    .Databases
+    .Where(db => databaseNames.ContainsCI(db.Name))
+    .OrderBy(db => db.Name);
+  
+  var modelPathInfo = new DirectoryInfo(modelPath);
+  foreach (var file in modelPathInfo.GetFiles()) {
+		file.Delete();
+  }
+	var dataPathInfo = new DirectoryInfo(dataPath);
+  foreach (var file in dataPathInfo.GetFiles()) {
+		file.Delete();
+  }
+	var controllersPathInfo = new DirectoryInfo(controllersPath);
+  foreach (var file in controllersPathInfo.GetFiles()) {
+		file.Delete();
+  }
+  this.GenerateEntityClasses(databases, modelPath, this.TABLES);
+	this.GenerateServiceInterfaces(databases, dataPath, this.TABLES);
+  this.GenerateDataAccessClasses(databases, dataPath, this.TABLES);
+	this.GenerateRestControllers(databases, controllersPath, this.TABLES);
+}
+
+#>

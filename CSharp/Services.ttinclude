@@ -1,0 +1,94 @@
+﻿<#+
+
+private void GenerateDataAccessClasses(IEnumerable<Database> databases, String outputDirectory, List<string> _tables)
+{
+  foreach (var database in databases)
+  {
+    foreach (var schema in database.Schemas.OrderBy(schema => schema.Name))
+    {
+      foreach (var table in schema.Tables.Where(t => _tables.Contains(t.Name)).OrderBy(table => table.Name))
+      {
+				var serviceClassName = table.TargetLanguageIdentifier + "Service";
+				var serviceInterfaceName = "I" + serviceClassName;
+
+				this.WriteDataAccessNamespaceHeader(this.CONST_NAMESPACE_MODEL, this.CONST_NAMESPACE_DATA);
+				this.PushIndent(_standardIndent);
+        this.WriteDataAccessClassHeader(serviceClassName, serviceInterfaceName, table);
+        this.PushIndent(_standardIndent);
+
+        this.WriteSelectMethod(database, table);
+				this.WriteQueryMethod(database, table);
+
+        /* Views don't need insert, update and delete methods. */
+        if (!table.IsView)
+        {
+          this.WriteInsertMethod(database, table);
+          this.WriteUpdateMethod(database, table);
+          this.WriteDeleteMethod(database, table);
+        }
+
+        this.PopIndent();
+        this.WriteClosingBrace();
+				this.PopIndent();
+				this.WriteClosingBrace();
+
+				this.SaveOutput(Path.Combine(outputDirectory, serviceClassName + ".g.cs"));
+      } // foreach table
+    } // foreach schema
+  } // foreach database
+}
+
+private void WriteDataAccessNamespaceHeader(String entitiesUsingIdentifier, String namespaceIdentifier)
+{
+#>
+using AJBoggs.Common.Data;
+using <#= this.CONST_NAMESPACE_COMMON_LOGGING #>;
+using <#= this.CONST_NAMESPACE_COMMON_PROVIDERS #>;
+using <#= entitiesUsingIdentifier #>;
+using Dapper;
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Threading.Tasks;
+
+namespace <#= namespaceIdentifier #>
+{
+<#+
+}
+
+private void WriteDataAccessClassHeader(string className, string interfaceName, Table table)
+{
+#>
+public partial class <#= className #> : <#= interfaceName #>
+{
+	private const string SELECT = "SELECT <#= String.Join(",", table.Columns.GetSelectColumnList("")) #> FROM <#= table.SchemaNameAndTableName #>";
+  private const string SELECT_TOP_1000 = "SELECT TOP 1000 <#= String.Join(",", table.Columns.GetSelectColumnList("")) #> FROM <#= table.SchemaNameAndTableName #>";
+	private const string SELECT_COUNT = "SELECT COUNT(1) AS [TotalRows] FROM <#= table.SchemaNameAndTableName #>";
+	private const string DEFAULT_SORT = "ORDER BY [SysLastModified] DESC";
+	private const string SKIP_TAKE_FORMAT = "OFFSET {0} ROWS FETCH NEXT {1} ROWS ONLY";
+
+	private readonly ILogger mLogger;
+	private readonly string mConnectionString;
+
+	//Constructors
+
+	public <#= className #>(ISettingsProvider settingsProvider, ILogger logger = null)
+	{
+		if (settingsProvider == null)
+		{
+			throw new ArgumentNullException("settingsProvider");
+		}
+		if (!settingsProvider.TryGetSetting(Constants.SQL_CONNECTION_STRING_SETTING, out mConnectionString))
+		{
+			throw new Exception(string.Format("Unable to get {0} setting from settings provider.", Constants.SQL_CONNECTION_STRING_SETTING));
+		}
+		mLogger = logger ?? new NullLogger();
+	}
+
+	//Public instance methods
+
+<#+
+}
+
+#>

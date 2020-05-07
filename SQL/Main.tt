@@ -1,0 +1,79 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ output extension=".txt" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Data" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="C:\GIT\experiments\code-gen\Utilities.Core\bin\Debug\Utilities.Core.dll" #>
+<#@ assembly name="C:\GIT\experiments\code-gen\Utilities.Sql\bin\Debug\Utilities.Sql.dll" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="System.Data.SqlClient" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text.RegularExpressions" #>
+<#@ import namespace="Utilities.Core" #>
+<#@ import namespace="Utilities.Sql.SqlServer" #>
+<#@ include file="C:\GIT\experiments\code-gen\T4_Utilities\SQL Generator Utilities.ttinclude" #>
+<#@ include file="Select.ttinclude" #>
+<#@ include file="Insert.ttinclude" #>
+<#@ include file="Update.ttinclude" #>
+<#@ include file="Delete.ttinclude" #>
+<#@ include file="Merge (Insert and Update).ttinclude" #>
+<#@ include file="User-Defined Table Type.ttinclude" #>
+<#
+
+using (var connection = new SqlConnection("data source=deimos.ad.ixn.net\\deimos_sqlsrv;initial catalog=uas-oidc;Integrated Security=SSPI"))
+{
+  connection.Open();
+
+  var configuration =
+    new Configuration()
+    {
+      Connection = connection,
+      XmlSystem = XmlSystem.Linq_XDocument,
+      TargetLanguage = TargetLanguage.CSharp_4_0,
+      XmlValidationLocation = XmlValidationLocation.PropertySetter
+    };
+    
+  var templateDirectory = Path.GetDirectoryName(this.Host.ResolvePath("."));
+  var outputDirectory = Path.Combine(templateDirectory, "Stored Procedures");
+  var server = new Server(configuration);
+  var databaseNames = new List<String>() { "uas-oidc" };
+  var databases =
+    server
+    .Databases
+    .Where(db => databaseNames.Contains(db.Name, CaseInsensitiveStringComparer.Instance)) 
+    .OrderBy(db => db.Name);
+
+  var di = new DirectoryInfo(outputDirectory);
+  foreach (var file in di.GetFiles()) {
+		file.Delete();
+  }
+	var tables = new List<string>();
+	tables.Add("ApiClaims");
+	tables.Add("ApiResources");
+	tables.Add("ApiScopeClaims");
+	tables.Add("ApiScopes");
+	tables.Add("ApiSecrets");
+	tables.Add("ClientClaims");
+	tables.Add("ClientCorsOrigins");
+	tables.Add("ClientGrantTypes");
+	tables.Add("ClientIdPRestrictions");
+	tables.Add("ClientPostLogoutRedirectUris");
+	tables.Add("ClientProperties");
+	tables.Add("ClientRedirectUris");
+	tables.Add("Clients");
+	tables.Add("ClientScopes");
+	tables.Add("ClientSecrets");
+	tables.Add("IdentityClaims");
+	tables.Add("IdentityResources");
+	tables.Add("PersistedGrants");
+  this.GenerateSelectStoredProcedures(databases, outputDirectory, tables);
+  this.GenerateInsertStoredProcedures(databases, outputDirectory, tables); 
+  this.GenerateUpdateStoredProcedures(databases, outputDirectory, tables);
+  this.GenerateDeleteStoredProcedures(databases, outputDirectory, tables);
+  //this.GenerateMergeInsertAndUpdateStoredProcedures(databases, outputDirectory);
+  //this.GenerateTableTypes(databases, outputDirectory);
+}
+
+#>

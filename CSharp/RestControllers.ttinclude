@@ -1,0 +1,280 @@
+﻿<#+
+
+private void GenerateRestControllers(IEnumerable<Database> databases, String outputDirectory, List<string> _tables)
+{
+
+  foreach (var database in databases)
+  {
+    foreach (var schema in database.Schemas.OrderBy(schema => schema.Name))
+    {
+      foreach (var table in schema.Tables.Where(t => _tables.Contains(t.Name)).OrderBy(table => table.Name))
+      {
+				var modelClassName = table.TargetLanguageIdentifier;
+				var controllerName = table.TargetLanguageIdentifier + "Controller";
+
+				this.WriteControllerNamespaceHeader();
+				this.PushIndent(_standardIndent);
+        this.WriteControllerHeader(controllerName, modelClassName);
+        this.PushIndent(_standardIndent);
+
+        this.WriteQueryMethod(modelClassName);
+				this.WriteGetMethod(modelClassName);
+				this.WriteInsertMethod(modelClassName);
+				this.WriteUpdateMethod(modelClassName);
+				this.WriteDeleteMethod(modelClassName);
+
+        this.PopIndent();
+        this.WriteClosingBrace();
+				this.PopIndent();
+				this.WriteClosingBrace();
+
+				this.SaveOutput(Path.Combine(outputDirectory, controllerName + ".g.cs"));
+      } // foreach table
+    } // foreach schema
+  } // foreach database
+}
+
+private void WriteControllerNamespaceHeader()
+{
+#>
+using <#= this.CONST_NAMESPACE_COMMON_ASPNETCORE_EXTENSTIONS #>;
+using AJBoggs.Common.AspNetCore.Mvc;
+using <#= this.CONST_NAMESPACE_COMMON_DATA #>;
+using <#= this.CONST_NAMESPACE_COMMON_EXTENSIONS #>;
+using <#= this.CONST_NAMESPACE_COMMON_LOGGING #>;
+using <#= this.CONST_NAMESPACE_DATA #>;
+using <#= this.CONST_NAMESPACE_MODEL #>;
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Net;
+using System.Threading.Tasks;
+using System.Linq;
+
+namespace <#= this.CONST_NAMESPACE_SERVICES_CONTROLLERS #>
+{
+<#+
+}
+
+private void WriteControllerHeader(string controllerName, string modelName)
+{
+#>
+/// <summary>
+/// CRUD operations for <#= modelName #> entities 
+/// </summary>
+[Route("api/[controller]")]
+public partial class <#= controllerName #> : Controller
+{
+	private readonly I<#= modelName #>Service mDataService;
+	private readonly ILogger mLogger;
+	private readonly IQueryParser mQueryParser;
+
+	//TODO global exception handling
+
+	public <#= modelName #>Controller(I<#= modelName #>Service dataService, ILogger logger, IQueryParser queryParser)
+	{
+		mDataService = dataService ?? throw new ArgumentNullException("dataService");
+		mLogger = logger ?? throw new ArgumentNullException("logger");
+		mQueryParser = queryParser ?? throw new ArgumentNullException("queryParser");
+	}
+
+<#+
+}
+
+private void WriteQueryMethod(string modelClassName) 
+{
+#>
+/// <summary>
+/// Returns a list of <#= modelClassName #> entities
+/// </summary>
+/// <returns></returns>
+[HttpGet()]
+[ProducesResponseType(typeof(ApiResponse<QueryResult<<#= modelClassName #>>>), (int)HttpStatusCode.OK)]
+public async Task<IActionResult> Get()
+{
+	try 
+	{
+		mLogger.Debug("Entering <#= modelClassName #>Controller.Get method");
+		var parsedQuery = mQueryParser.Parse<<#= modelClassName #>>(Request.Query.ToDictionary());
+		if (!parsedQuery.Ok)
+		{
+			mLogger.Error("An error occurred parsing query string. Error: {0}", parsedQuery.Error);
+			return new BadRequestObjectResult(new ApiResponse<QueryResult<<#= modelClassName #>>>(parsedQuery.Error));
+		}
+		var x = await mDataService.QueryAsync(parsedQuery.QueryParameters);
+		return new OkObjectResult(new ApiResponse<QueryResult<<#= modelClassName #>>>(x));
+	}
+	catch (Exception ex)
+	{
+		if (ex.IsCritical())
+		{
+			throw;
+		}
+		mLogger.Error(ex);
+		return new InternalServerErrorResult(new ApiResponse<QueryResult<<#= modelClassName #>>>(ex.Message));
+	}
+}
+
+<#+
+}
+
+private void WriteGetMethod(string modelClassName)
+{
+#>
+/// <summary>
+/// Gets a single <#= modelClassName #>
+/// </summary>
+/// <param name="id">The <#= modelClassName #> id</param>
+/// <returns></returns>
+[HttpGet("{id}")]
+[ProducesResponseType(typeof(ApiResponse<<#= modelClassName #>>), (int)HttpStatusCode.OK)]
+public async Task<IActionResult> Get(long id)
+{
+	try
+	{
+		mLogger.Debug("Entering <#= modelClassName #>Controller.Get(int id) method");
+		if (id < 1)
+		{
+			string error = "id value was less than 1, returning bad request result";
+			mLogger.Error(error);
+			return new BadRequestObjectResult(new ApiResponse<<#= modelClassName #>>(error: error, statusCode: HttpStatusCode.BadRequest));
+		}
+		mLogger.Debug("Getting <#= modelClassName #> id {0}", id);
+		var x = await mDataService.GetAsync(id);
+		if (x == null)
+		{
+			mLogger.Debug("<#= modelClassName #> not found, returning not found result");
+			return new NotFoundObjectResult(new ApiResponse<<#= modelClassName #>>(HttpStatusCode.NotFound));
+		}
+		return new OkObjectResult(new ApiResponse<<#= modelClassName #>>(x));
+	}
+	catch (Exception ex)
+	{
+		if (ex.IsCritical())
+		{
+			throw;
+		}
+		mLogger.Error(ex);
+		return new InternalServerErrorResult(new ApiResponse<<#= modelClassName #>>(ex.Message));
+	}
+}
+
+<#+
+}
+
+private void WriteInsertMethod(string modelClassName)
+{
+#>
+/// <summary>
+/// Inserts a new <#= modelClassName #>
+/// </summary>
+/// <param name="entity">The <#= modelClassName #> to insert</param>
+/// <returns>The new <#= modelClassName #> with properties set on server</returns>
+[HttpPost]
+[ProducesResponseType(typeof(ApiResponse<<#= modelClassName #>>), (int)HttpStatusCode.Created)]
+public async Task<IActionResult> Post([FromBody]<#= modelClassName #> entity)
+{
+	try
+	{
+		mLogger.Debug("Entering <#= modelClassName #>Controller.Post method");
+		if (entity == null)
+		{
+			string error = "entity was null, returning bad request result";
+			mLogger.Error(error);
+			return new BadRequestObjectResult(new ApiResponse<<#= modelClassName #>>(error: error, statusCode: HttpStatusCode.BadRequest));
+		}
+		mLogger.Debug("Inserting new <#= modelClassName #>");
+		var x = await mDataService.InsertAsync(entity);
+		string location = Request != null ? Request.PathBase.Value.AppendRelativeUrl(x.<#= modelClassName #>Id.ToString()) : x.<#= modelClassName #>Id.ToString();
+		return new CreatedResult(location, new ApiResponse<<#= modelClassName #>>(x));
+	}
+	catch (Exception ex)
+	{
+		if (ex.IsCritical())
+		{
+			throw;
+		}
+		mLogger.Error(ex);
+		return new InternalServerErrorResult(new ApiResponse<<#= modelClassName #>>(ex.Message));
+	}
+}
+
+<#+
+}
+
+private void WriteUpdateMethod(string modelClassName)
+{
+#>
+/// <summary>
+/// Updates a <#= modelClassName #>
+/// </summary>
+/// <param name="entity">The <#= modelClassName #> to update</param>
+/// <returns></returns>
+[HttpPut]
+[ProducesResponseType(typeof(ApiResponse<<#= modelClassName #>>), (int)HttpStatusCode.OK)]
+public async Task<IActionResult> Put([FromBody]<#= modelClassName #> entity)
+{
+	try 
+	{
+		mLogger.Debug("Entering <#= modelClassName #>Controller.Put method");
+		if (entity == null)
+		{
+			string error = "entity was null, returning bad request result";
+			mLogger.Error(error);
+			return new BadRequestObjectResult(new ApiResponse<<#= modelClassName #>>(error: error, statusCode: HttpStatusCode.BadRequest));
+		}
+		mLogger.Debug("Updating <#= modelClassName #> with id {0}", entity.<#= modelClassName #>Id);
+		var x = await mDataService.UpdateAsync(entity);
+		return new OkObjectResult(new ApiResponse<<#= modelClassName #>>(x));
+	}
+	catch (Exception ex)
+	{
+		if (ex.IsCritical())
+		{
+			throw;
+		}
+		mLogger.Error(ex);
+		return new InternalServerErrorResult(new ApiResponse<<#= modelClassName #>>(ex.Message));
+	}
+}
+
+<#+
+}
+
+private void WriteDeleteMethod(string modelClassName)
+{
+#>
+/// <summary>
+/// Deletes a <#= modelClassName #>
+/// </summary>
+/// <param name="id">The id of the <#= modelClassName #> to delete</param>
+/// <returns></returns>
+[HttpDelete("{id}")]
+[ProducesResponseType((int)HttpStatusCode.NoContent)]
+public async Task<IActionResult> Delete(long id)
+{
+	try
+	{
+		mLogger.Debug("Entering <#= modelClassName #>Controller.Delete method");
+		if (id < 1)
+		{
+			string error = "id value was less than 1, returning bad request result";
+			mLogger.Error(error);
+			return new BadRequestObjectResult(new ApiResponse<<#= modelClassName #>>(error: error, statusCode: HttpStatusCode.BadRequest));
+		}
+		mLogger.Debug("Deleting <#= modelClassName #> with id {0}", id);
+		await mDataService.DeleteAsync(id);
+		return new OkObjectResult(new ApiResponse<<#= modelClassName #>>(HttpStatusCode.OK));
+	}
+	catch (Exception ex)
+	{
+		if (ex.IsCritical())
+		{
+			throw;
+		}
+		mLogger.Error(ex);
+		return new InternalServerErrorResult(new ApiResponse<<#= modelClassName #>>(ex.Message));
+	}
+}
+<#+
+}
+#>

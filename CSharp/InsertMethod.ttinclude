@@ -1,0 +1,23 @@
+﻿<#+
+private void WriteInsertMethod(Database database, Table table)
+{
+#>
+public virtual async Task<<#= table.TargetLanguageIdentifier #>> InsertAsync(<#= table.TargetLanguageIdentifier #> entity)
+{
+	if (entity == null)
+	{
+		throw new ArgumentNullException("entity");
+	}
+	using (IDbConnection db = new SqlConnection(mConnectionString))
+	{
+		var p = new DynamicParameters();
+<#+
+	this.PushWritePop(_standardIndent.Repeat(2), this.GetSqlCommandParameters(table, ColumnType.CanAppearInInsertStatement));
+#>
+		return await db.QuerySingleOrDefaultAsync<<#= table.TargetLanguageIdentifier #>>("<#= this.GetStoredProcedureName(database.Name, table.Schema.Name, table.Name, "Insert") #>", p, commandType: CommandType.StoredProcedure);
+	}
+}
+
+<#+
+}
+#>
